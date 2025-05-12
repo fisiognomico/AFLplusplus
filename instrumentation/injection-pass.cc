@@ -106,6 +106,7 @@ class InjectionRoutines : public ModulePass {
   bool doSQL = false;
   bool doLDAP = false;
   bool doXSS = false;
+  bool doSSTI = false;
 
 };
 
@@ -209,6 +210,30 @@ bool InjectionRoutines::hookRtns(Module &M) {
   Function *FuncPtr;
 #endif
 
+// TODO scrub away all the precompiler commands
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee
+#else
+  Constant *
+#endif
+      c3 = M.getOrInsertFunction("__afl_injection_ssti", VoidTy, i8PtrTy
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee sstifunc = c3;
+#else
+  Function *sstifunc = cast<Function>(c3);
+#endif
+
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee FuncPtr;
+#else
+  Function *FuncPtr;
+#endif
+
   bool ret = false;
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
@@ -280,6 +305,19 @@ bool InjectionRoutines::hookRtns(Module &M) {
             }
 
             FuncPtr = xssfunc;
+            param = 1;
+
+          }
+
+          if (doSSTI && (FuncName.compare("htmlReadMemory") == 0)) {
+
+            if (!be_quiet) {
+
+              errs() << "Injection SSTI hook: " << FuncName << "\n";
+
+            }
+
+            FuncPtr = sstifuncfunc;
             param = 1;
 
           }

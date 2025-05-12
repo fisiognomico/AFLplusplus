@@ -83,6 +83,14 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #define CTOR_PRIO 3
 #define EARLY_FS_PRIO 5
 
+/* With respect to other injections, such as XSS or SQLI, an SSTI can not
+ * be traced by a specific token that is not correctly parsed from user
+ * input, but instead it relies on the evaluation of a template formula
+ * inside user input. In this way we consider the case in which a specific
+ * formula is injected that results in the evaluation of the target SSTI_FORMULA
+ */
+#define SSTI_FORMULA "TEST_SSTI"
+
 #include <sys/mman.h>
 #include <fcntl.h>
 
@@ -2878,6 +2886,21 @@ void __afl_injection_xss(u8 *buf) {
     if (unlikely(strstr((char *)buf, "1\"><\""))) {
 
       fprintf(stderr, "ALERT: Detected XSS injection in content: %s\n", buf);
+      abort();
+
+    }
+
+  }
+
+}
+
+void __afl_injection_ssti(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, SSTI_FORMULA))) {
+
+      fprintf(stderr, "ALERT: Detected SSTI injection in content: %s\n", buf);
       abort();
 
     }
